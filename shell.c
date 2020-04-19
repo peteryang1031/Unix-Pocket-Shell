@@ -4,7 +4,28 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <ctype.h>
+int Command_transfer(char *command)
+{
+        if (strcmp(command, "ls") == 0)
+        {
+                return 0;
+        }
+        else if (strcmp(command, "cd") == 0)
+        {
+                return 1;
+        }
+        else if (strcmp(command, "pwd") == 0)
+        {
+                return 2;
+        }
+        else if (strcmp(command, "cat") == 0)
+        {
+                return 3;
+        }
+}
 char *Get_Command(char *shell)
 {
         int i = 0;
@@ -15,7 +36,7 @@ char *Get_Command(char *shell)
         char *command = (char *)malloc(5 * sizeof(char));
 
         int j = 0;
-
+        int x = 1;
         while (shell[i] != ' ' && shell[i] != '\n')
         {
                 command[j] = shell[i];
@@ -39,7 +60,7 @@ void ls_command(char *shell)
         {
                 para[paracnt][0] = '-';
                 int temp = 1;
-                while (isalpha(*(pos + temp))||*(pos+temp)=='-')
+                while (isalpha(*(pos + temp)) || *(pos + temp) == '-')
                 {
                         para[paracnt][temp] = *(pos + temp);
                         temp++;
@@ -47,16 +68,145 @@ void ls_command(char *shell)
                 shell = pos + temp;
                 paracnt++;
         }
-
         para[paracnt] = NULL;
         execvp("ls", para);
+        perror("ls command");
+        exit(1);
 }
-int main(void)
+void cd_command(char *shell)
+{
+        int paracnt = 1;
+        char *para[5];
+        for (int u = 0; u < 5; u++)
+        {
+                para[u] = (char *)malloc(10 * sizeof(char));
+        }
+        para[0] = "cd";
+        int temp = 2;
+        while (shell[temp] == ' ')
+        {
+                temp++;
+        }
+        int i = 0;
+        while (shell[temp] != ' ' && shell[temp] != '\n')
+        {
+                para[1][i++] = shell[temp++];
+        }
+        para[1][i] = '\0';
+        para[2] = NULL;
+        if (para[1][0] == '\0' || para[1][0] == '~')
+        { //cd 主目录
+                para[1] = getenv("HOME");
+        }
+        if (chdir(para[1]) < 0)
+        {
+                perror("chdir");
+        }
+        //execvp("cd",para);
+        //perror("cd command");
+        //execl("./go.sh","go",NULL);
+        //exit(0);
+}
+void pwd_command(char *shell)
+{
+        execlp("pwd", "pwd", NULL);
+        perror("pwd command");
+        exit(1);
+}
+void cat_command(char *shell)
+{
+        int fd;
+        int paracnt = 1;
+        char *para[5];
+        char buf[1024];
+        for (int u = 0; u < 5; u++)
+        {
+                para[u] = (char *)malloc(10 * sizeof(char));
+        }
+        para[0] = "cat";
+        int temp = 3;
+        int i = 0;
+        while (shell[temp] == ' ')
+        {
+                temp++;
+        }
+        while (shell[temp] != ' ' && shell[temp] != '\n')
+        {
+                para[1][i++] = shell[temp++];
+        }
+        para[1][i] = '\0';
+        //
+        if (para[1][0] == '\0')//case1:没有任何参数，输入到标准输入输出到标准输出
+        {
+                while (fgets(buf, sizeof(buf), stdin))
+                {
+                        printf("%s", buf);
+                }
+        }
+        else if((strstr(shell,"<<")!=NULL)&&(strstr(shell,"EOF")!=NULL)){
+                if(strstr(shell,">>")==NULL){//case 2:创建新文件
+                        temp=3;
+                        i=0;
+                        while(isalnum(shell[temp])==0){
+                                temp++;
+                        }
+                        while(isalnum(shell[temp])){
+                                para[1][i++]=shell[temp++];
+                        }
+                        para[1][i]='\0';
+                        int fd=open(para[1],O_WRONLY|O_CREAT);
+                        if(fd<0){
+                                perror("Create");
+                                exit(1);
+                        }
+                        int read_byte;
+                        while((read_byte=read(STDIN_FILENO,buf,1024))){
+                                int write_byte=write(fd,buf,read_byte);
+                                if(write_byte<0){
+                                        perror("Write");
+                                        exit(1);
+                                }
+                        }
+                }
+        }
+        else//case2:把已存在文件内容读到标准输出
+        {
+                
+                fd = open(para[1], O_RDONLY);
+                int read_byte = read(fd, buf, sizeof(buf));
+                if (read_byte < 0)
+                {
+                        perror("read");
+                        exit(1);
+                }
+                while (read_byte != 0)
+                {
+                        int write_byte = write(STDOUT_FILENO, buf, read_byte);
+                        if (write_byte < 0)
+                        {
+                                perror("write");
+                                exit(1);
+                        }
+                        read_byte = read(fd, buf, sizeof(buf));
+                        if (read_byte < 0)
+                        {
+                                perror("write");
+                                exit(1);
+                        }
+                }
+                close(fd);
+                // para[2]=NULL;
+                // execvp("cat",para);
+                // perror("cat command");
+        }
+        exit(1);
+}
+int main(int argc, char *argv[])
 {
         pid_t pid;
         char *shell;
         shell = (char *)malloc(30 * sizeof(char));
-        printf("$");
+        printf("shell>");
         while (fgets(shell, 30, stdin))
         {
                 pid = fork();
@@ -70,27 +220,45 @@ int main(void)
                         //execlp("ls","ls",NULL);
                         char *command = (char *)malloc(5);
                         command = Get_Command(shell);
-                        if (strcmp(command, "ls") == 0)
+                        switch (Command_transfer(command))
                         {
+                        case 0:
                                 ls_command(shell);
+                                break;
+                        case 1:
+                                //cd_command(shell);
+                                exit(1);
+                                break;
+                        case 2:
+                                pwd_command(shell);
+                                break;
+                        case 3:
+                                cat_command(shell);
+                                break;
+                        default:
+                                printf("%s", "This command is out of version\n");
+                                exit(1);
+                                break;
                         }
                 }
-                else {
-                        waitpid(pid,NULL,0);
-                        printf("$");
+                else
+                {
+                        char *command = (char *)malloc(5);
+                        if (Command_transfer(Get_Command(shell)) == 1)
+                        { //cd 命令
+                                cd_command(shell);
+                        }
+                        waitpid(pid, NULL, 0);
+                        printf("shell>");
+                        fflush(stdout);
                 }
         }
+        exit(1);
 }
 // int main(void)
 // {
 //         char answer[100];
 //         char *p;
-//         printf("Type something:\n");
-//         fgets(answer, sizeof answer, stdin);
-//         if ((p = strchr(answer, '\n')) != NULL) /*fgets不会像gets那样自动地去掉结尾的\n，所以程序中手动将\n位置处的值变为\0,代表输入的结束。*/
-//         {
-//                 *p = '\0';
-//         }
-//         printf("You typed \"%s\"\n", answer);
+//         execlp("cd","cd","..",NULL);
 //         return 0;
 // }
