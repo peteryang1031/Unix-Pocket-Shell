@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <dirent.h>
 int Command_transfer(char *command)
 {
         if (strcmp(command, "ls") == 0)
@@ -46,6 +47,35 @@ char *Get_Command(char *shell)
         command[j] = '\0';
         return command;
 }
+void ls_subprint(char c)
+{
+        char name[60];
+        char path[60];
+        if (getcwd(path, sizeof(path)) == NULL)
+        {
+                perror("getcwd");
+                exit(1);
+        }
+        struct dirent *dp;
+        DIR *dfd;
+        if ((dfd = opendir(path)) == NULL)
+        {
+                perror("opendir");
+                exit(1);
+        }
+        while ((dp = readdir(dfd)) != NULL)
+        {
+                if ((c == 0 || c == 'A') && (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0))
+                {
+                        continue;
+                }
+                if(c==0&&dp->d_name[0]=='.'){
+                        continue;
+                }
+                printf("%s ",dp->d_name);
+        }
+        printf("\n");
+}
 void ls_command(char *shell)
 {
         int paracnt = 1;
@@ -65,12 +95,31 @@ void ls_command(char *shell)
                         para[paracnt][temp] = *(pos + temp);
                         temp++;
                 }
+                para[paracnt][temp] = '\0';
                 shell = pos + temp;
                 paracnt++;
         }
         para[paracnt] = NULL;
-        execvp("ls", para);
-        perror("ls command");
+        if (paracnt == 1)
+        { //case1:ls无参数(不显示隐藏文件)
+                ls_subprint(0);  
+        }
+        else
+        {
+                for (int i = 1; i < paracnt; i++)
+                {
+                        if (strcmp(para[i], "-a")==0)
+                        {
+                                ls_subprint('a');
+                                break;
+                        }
+                        if(strcmp(para[i],"-A")==0){
+                                ls_subprint('A');
+                        }
+                }
+        }
+        //execvp("ls", para);
+        //perror("ls command");
         exit(1);
 }
 void cd_command(char *shell)
@@ -136,42 +185,81 @@ void cat_command(char *shell)
         }
         para[1][i] = '\0';
         //
-        if (para[1][0] == '\0')//case1:没有任何参数，输入到标准输入输出到标准输出
+        if (para[1][0] == '\0') //case1:没有任何参数，输入到标准输入输出到标准输出
         {
+                printf(">");
+                fflush(stdout);
                 while (fgets(buf, sizeof(buf), stdin))
                 {
                         printf("%s", buf);
+                        printf(">");
+                        fflush(stdout);
                 }
         }
-        else if((strstr(shell,"<<")!=NULL)&&(strstr(shell,"EOF")!=NULL)){
-                if(strstr(shell,">>")==NULL){//case 2:创建新文件
-                        temp=3;
-                        i=0;
-                        while(isalnum(shell[temp])==0){
-                                temp++;
-                        }
-                        while(isalnum(shell[temp])){
-                                para[1][i++]=shell[temp++];
-                        }
-                        para[1][i]='\0';
-                        int fd=open(para[1],O_WRONLY|O_CREAT);
-                        if(fd<0){
+        else if ((strstr(shell, "<<") != NULL) && (strstr(shell, "EOF") != NULL))
+        {
+                temp = 3;
+                i = 0;
+                while (isalnum(shell[temp]) == 0)
+                {
+                        temp++;
+                }
+                while (isalnum(shell[temp]))
+                {
+                        para[1][i++] = shell[temp++];
+                }
+                para[1][i] = '\0';
+                if (strstr(shell, ">>") == NULL) //case 2:创建新文件
+                {
+
+                        int fd = open(para[1], O_RDWR | O_CREAT, 0644);
+                        if (fd < 0)
+                        {
                                 perror("Create");
                                 exit(1);
                         }
                         int read_byte;
-                        while((read_byte=read(STDIN_FILENO,buf,1024))){
-                                int write_byte=write(fd,buf,read_byte);
-                                if(write_byte<0){
+                        printf(">");
+                        fflush(stdout);
+                        while ((read_byte = read(STDIN_FILENO, buf, 1024)))
+                        {
+                                int write_byte = write(fd, buf, read_byte);
+                                if (write_byte < 0)
+                                {
                                         perror("Write");
                                         exit(1);
                                 }
+                                printf(">");
+                                fflush(stdout);
+                        }
+                }
+                else //case3:追加文件内容
+                {
+                        int fd = open(para[1], O_RDWR | O_APPEND);
+                        if (fd < 0)
+                        {
+                                perror("Append");
+                                exit(1);
+                        }
+                        int read_byte;
+                        printf(">");
+                        fflush(stdout);
+                        while ((read_byte = read(STDIN_FILENO, buf, 1024)))
+                        {
+                                int write_byte = write(fd, buf, read_byte);
+                                if (write_byte < 0)
+                                {
+                                        perror("Write");
+                                        exit(1);
+                                }
+                                printf(">");
+                                fflush(stdout);
                         }
                 }
         }
-        else//case2:把已存在文件内容读到标准输出
+        else //case4:把已存在文件内容读到标准输出
         {
-                
+
                 fd = open(para[1], O_RDONLY);
                 int read_byte = read(fd, buf, sizeof(buf));
                 if (read_byte < 0)
