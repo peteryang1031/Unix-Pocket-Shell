@@ -14,16 +14,16 @@ This shell is not compatible with Windows Command and only applied for Unix:D.
   Arguments can be:
   * **-a**
   
-      do not ignore entries starting with .
+        do not ignore entries starting with .
   * **-A**
   
-      do not list implied . and ..
+        do not list implied . and ..
   * **-l**
   
-      use a long listing format,including from file mode, number of nlinks,user name, group name, size, mode modification time      and name left to right
+        use a long listing format,including from file mode, number of nlinks,user name, group name, size, mode modification time      and name left to right
   * **-R**
   
-      list subdirectories recursively
+        list subdirectories recursively
       
 ### cat 
 
@@ -42,7 +42,7 @@ This shell is not compatible with Windows Command and only applied for Unix:D.
   * **cat >file<<EOF**
   
         Create file and write to it from standard input
-  * **cat >>file<<EOF""
+  * **cat >>file<<EOF**
   
         Append content to an existing file from standard input
 ### cd
