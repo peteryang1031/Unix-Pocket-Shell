@@ -4,7 +4,8 @@ This shell is not compatible with Windows Command and only applied for Unix:D.
 ### ls
 
 **SYNOPSIS**
-  ls [options]...[FILE]...
+
+  ls [options]... [FILE]...
   
 **DESCRIPTION**
 
@@ -27,7 +28,8 @@ This shell is not compatible with Windows Command and only applied for Unix:D.
 ### cat 
 
 **SYNOPSIS**
-  cat [options]...[FILE]...
+
+  cat [options]... [FILE]...
   
 **DESCRIPTION**
 
@@ -46,6 +48,7 @@ This shell is not compatible with Windows Command and only applied for Unix:D.
 ### cd
 
 **SYNOPSIS**
+
   cd [FILE]...
 
 **DESCRIPTION**
